@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/exec"
 	"os/user"
@@ -27,11 +29,26 @@ type FileInfoRecord struct {
 	User       string    `json:"user,omitempty"`
 	Group      string    `json:"group,omitempty"`
 	Size       int64     `json:"size"`
+	INode      uint64    `json:"inode"`
 	ModTime    time.Time `json:"mod_time"`
 	IsSymlink  bool      `json:"is_symlink"`
 	LinkTarget string    `json:"link_target,omitempty"`
 	ACL        bool      `json:"acl"`
 	Err        string    `json:"err,omitempty"`
+}
+
+type User struct {
+	Username string `json:"username"`
+	UID      uint32 `json:"uid"`
+	GID      uint32 `json:"gid"`
+	Home     string `json:"home"`
+	Shell    string `json:"shell"`
+}
+
+type Group struct {
+	Name    string   `json:"name"`
+	GID     uint32   `json:"gid"`
+	Members []string `json:"members"`
 }
 
 var (
@@ -204,6 +221,7 @@ func processPath(path string, info os.FileInfo) FileInfoRecord {
 		rec.GID = uint32(stat.Gid)
 		rec.User = uidToUser(rec.UID)
 		rec.Group = gidToGroup(rec.GID)
+		rec.INode = uint64(stat.Ino)
 	} else {
 		rec.Err = err.Error()
 	}
@@ -264,6 +282,93 @@ func walk(root string) error {
 	})
 }
 
+func getAllUsers() ([]User, error) {
+	file, err := os.Open("/etc/passwd")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var users []User
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+
+		fields := strings.Split(line, ":")
+		if len(fields) >= 7 {
+			uid, err := strconv.ParseUint(fields[2], 10, 32)
+			if err != nil {
+				log.Printf("Warning: invalid UID for user %s: %v", fields[0], err)
+				continue
+			}
+
+			gid, err := strconv.ParseUint(fields[3], 10, 32)
+			if err != nil {
+				log.Printf("Warning: invalid GID for user %s: %v", fields[0], err)
+				continue
+			}
+
+			users = append(users, User{
+				Username: fields[0],
+				UID:      uint32(uid),
+				GID:      uint32(gid),
+				Home:     fields[5],
+				Shell:    fields[6],
+			})
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func getAllGroups() ([]Group, error) {
+	file, err := os.Open("/etc//group")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var groups []Group
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if strings.HasPrefix(line, "#") || line == "" {
+			continue
+		}
+
+		fields := strings.Split(line, ":")
+		if len(fields) >= 3 {
+			gid, err := strconv.ParseUint(fields[2], 10, 32)
+			if err != nil {
+				log.Printf("Warning: invalid GID for group %s: %v", fields[0], err)
+				continue
+			}
+
+			var members []string
+			if len(fields) >= 4 && fields[3] != "" {
+				members = strings.Split(fields[3], ",")
+			}
+
+			groups = append(groups, Group{
+				Name:    fields[0],
+				GID:     uint32(gid),
+				Members: members,
+			})
+		}
+	}
+
+	return groups, scanner.Err()
+}
+
 func emit(rec FileInfoRecord) {
 	if doJSON {
 		js, _ := json.Marshal(rec)
@@ -271,6 +376,29 @@ func emit(rec FileInfoRecord) {
 	} else {
 		fmt.Printf("%s\t%s\t%s\tuid:%d\tgid:%d\tuser:%s\tgroup:%s\tsize:%d\tacl:%t\n",
 			rec.Path, rec.Type, rec.Mode, rec.UID, rec.GID, rec.User, rec.Group, rec.Size, rec.ACL)
+	}
+}
+
+func fromStdin() {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			break
+		}
+		path := strings.TrimSpace(line)
+		if path != "" {
+			info, statErr := os.Lstat(path)
+			if statErr != nil {
+				emit(FileInfoRecord{Path: path, Err: statErr.Error()})
+			} else {
+				rec := processPath(path, info)
+				emit(rec)
+			}
+		}
+		if err == io.EOF {
+			break
+		}
 	}
 }
 
@@ -284,11 +412,25 @@ func init() {
 
 func main() {
 	flag.Parse()
-	if startPath == "" {
-		startPath = "."
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		fromStdin()
+	} else {
+		if startPath == "" {
+			startPath = "."
+		}
+		if err := walk(startPath); err != nil {
+			fmt.Fprintln(os.Stderr, "walk error: ", err)
+			os.Exit(1)
+		}
 	}
-	if err := walk(startPath); err != nil {
-		fmt.Fprintln(os.Stderr, "walk error: ", err)
-		os.Exit(1)
+
+	_, userErr := getAllUsers()
+	if userErr != nil {
+		log.Fatal(userErr)
+	}
+	_, groupErr := getAllGroups()
+	if groupErr != nil {
+		log.Fatal(groupErr)
 	}
 }
