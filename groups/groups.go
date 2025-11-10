@@ -7,22 +7,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	model "github.com/mykeelium/lshound/model"
 )
 
-type Group struct {
-	Name    string   `json:"name"`
-	GID     uint32   `json:"gid"`
-	Members []string `json:"members"`
-}
-
-func GetAllGroups() ([]Group, error) {
+func GetAllGroups() ([]model.Group, error) {
 	file, err := os.Open("/etc//group")
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var groups []Group
+	var groups []model.Group
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -45,7 +41,7 @@ func GetAllGroups() ([]Group, error) {
 				members = strings.Split(fields[3], ",")
 			}
 
-			groups = append(groups, Group{
+			groups = append(groups, model.Group{
 				Name:    fields[0],
 				GID:     uint32(gid),
 				Members: members,

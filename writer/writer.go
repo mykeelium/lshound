@@ -4,30 +4,11 @@ package writer
 import (
 	"encoding/json"
 	"fmt"
-	"time"
+
+	model "github.com/mykeelium/lshound/model"
 )
 
-type Emit func(bool, FileInfoRecord)
-
-type FileInfoRecord struct {
-	Path       string    `json:"path"`
-	Type       string    `json:"type"`
-	Mode       string    `json:"mode"`
-	ModeOctal  string    `json:"mode_octal"`
-	UID        uint32    `json:"uid"`
-	GID        uint32    `json:"gid"`
-	User       string    `json:"user,omitempty"`
-	Group      string    `json:"group,omitempty"`
-	Size       int64     `json:"size"`
-	INode      uint64    `json:"inode"`
-	ModTime    time.Time `json:"mod_time"`
-	IsSymlink  bool      `json:"is_symlink"`
-	LinkTarget string    `json:"link_target,omitempty"`
-	ACL        bool      `json:"acl"`
-	Err        string    `json:"err,omitempty"`
-}
-
-func EmitStdOut(humanReadable bool, rec FileInfoRecord) {
+func EmitStdOut(_ chan<- model.FileInfoRecord, humanReadable bool, rec model.FileInfoRecord) {
 	if !humanReadable {
 		js, _ := json.Marshal(rec)
 		fmt.Println(string(js))
@@ -36,3 +17,14 @@ func EmitStdOut(humanReadable bool, rec FileInfoRecord) {
 			rec.Path, rec.Type, rec.Mode, rec.UID, rec.GID, rec.User, rec.Group, rec.Size, rec.ACL)
 	}
 }
+
+// func EmitChannel(fileChannel chan<- model.FileInfoRecord, isJSON bool, record model.FileInfoRecord) {
+//   if isJSON {
+//     js, _ := json.Marshal(record)
+//   }
+// 	fileChannel <- record
+// }
+
+
+//func CreateGraph(users []model.User, groups []Group, fileChannel chan FileInfoRecord) model.Graph {
+//}

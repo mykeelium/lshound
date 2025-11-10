@@ -7,24 +7,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	model "github.com/mykeelium/lshound/model"
 )
 
-type User struct {
-	Username string `json:"username"`
-	UID      uint32 `json:"uid"`
-	GID      uint32 `json:"gid"`
-	Home     string `json:"home"`
-	Shell    string `json:"shell"`
-}
-
-func GetAllUsers() ([]User, error) {
+func GetAllUsers() ([]model.User, error) {
 	file, err := os.Open("/etc/passwd")
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	var users []User
+	var users []model.User
 	scanner := bufio.NewScanner(file)
 
 	for scanner.Scan() {
@@ -47,7 +41,7 @@ func GetAllUsers() ([]User, error) {
 				continue
 			}
 
-			users = append(users, User{
+			users = append(users, model.User{
 				Username: fields[0],
 				UID:      uint32(uid),
 				GID:      uint32(gid),

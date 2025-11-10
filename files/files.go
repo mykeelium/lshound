@@ -13,7 +13,7 @@ import (
 	"strings"
 	"syscall"
 
-	lshound_writer "github.com/MikeX777/lshound/writer"
+	model "github.com/mykeelium/lshound/model"
 )
 
 func modeToStirng(m os.FileMode) string {
@@ -149,8 +149,8 @@ func detectACL(path string) (bool, error) {
 	return false, nil
 }
 
-func ProcessPath(path string, info os.FileInfo, checkACL bool) lshound_writer.FileInfoRecord {
-	rec := lshound_writer.FileInfoRecord{
+func ProcessPath(path string, info os.FileInfo, checkACL bool) model.FileInfoRecord {
+	rec := model.FileInfoRecord{
 		Path:    path,
 		Size:    info.Size(),
 		ModTime: info.ModTime(),
@@ -198,7 +198,7 @@ func ProcessPath(path string, info os.FileInfo, checkACL bool) lshound_writer.Fi
 	return rec
 }
 
-func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanReadbable bool, emit lshound_writer.Emit) error {
+func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanReadbable bool, out chan<- model.FileInfoRecord, emit model.Emit) error {
 	rootAbs, err := filepath.Abs(root)
 	if err == nil {
 		root = rootAbs
@@ -207,8 +207,8 @@ func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanRea
 
 	return filepath.WalkDir(root, func(path string, dEntry os.DirEntry, err error) error {
 		if err != nil {
-			rec := lshound_writer.FileInfoRecord{Path: path, Err: err.Error()}
-			emit(humanReadbable, rec)
+			rec := model.FileInfoRecord{Path: path, Err: err.Error()}
+			emit(out, humanReadbable, rec)
 			return nil
 		}
 
@@ -229,12 +229,12 @@ func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanRea
 			info, err = os.Lstat(path)
 		}
 		if err != nil {
-			rec := lshound_writer.FileInfoRecord{Path: path, Err: err.Error()}
-			emit(humanReadbable, rec)
+			rec := model.FileInfoRecord{Path: path, Err: err.Error()}
+			emit(out, humanReadbable, rec)
 			return nil
 		}
 		rec := ProcessPath(path, info, checkACL)
-		emit(humanReadbable, rec)
+		emit(out, humanReadbable, rec)
 		return nil
 	})
 }

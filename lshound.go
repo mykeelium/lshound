@@ -10,18 +10,21 @@ import (
 	"os"
 	"strings"
 
-	lshound_files "github.com/MikeX777/lshound/files"
-	lshound_groups "github.com/MikeX777/lshound/groups"
-	lshound_users "github.com/MikeX777/lshound/users"
-	lshound_writer "github.com/MikeX777/lshound/writer"
+	lshound_files "github.com/mykeelium/lshound/files"
+	lshound_groups "github.com/mykeelium/lshound/groups"
+	model "github.com/mykeelium/lshound/model"
+	lshound_users "github.com/mykeelium/lshound/users"
+	lshound_writer "github.com/mykeelium/lshound/writer"
 )
 
 var (
-	startPath     string
-	doJSON        bool
-	checkACL      bool
-	followSymlink bool
-	maxDepth      int
+	startPath      string
+	doJSON         bool
+	checkACL       bool
+	followSymlink  bool
+	maxDepth       int
+	outputToStdOut bool
+	fileChannel    chan model.FileInfoRecord
 )
 
 func fromStdin() {
@@ -35,15 +38,23 @@ func fromStdin() {
 		if path != "" {
 			info, statErr := os.Lstat(path)
 			if statErr != nil {
-				lshound_writer.EmitStdOut(!doJSON, lshound_writer.FileInfoRecord{Path: path, Err: statErr.Error()})
+				emit(model.FileInfoRecord{Path: path, Err: statErr.Error()})
 			} else {
 				rec := lshound_files.ProcessPath(path, info, checkACL)
-				lshound_writer.EmitStdOut(!doJSON, rec)
+				emit(rec)
 			}
 		}
 		if err == io.EOF {
 			break
 		}
+	}
+}
+
+func emit(record model.FileInfoRecord) {
+	if outputToStdOut {
+		lshound_writer.EmitStdOut(nil, doJSON, record)
+	} else {
+		lshound_writer.EmitStdOut(fileChannel, doJSON, record)
 	}
 }
 
@@ -53,18 +64,22 @@ func init() {
 	flag.BoolVar(&checkACL, "acl", false, "check for POSIX ACLs using getfacl (if available)")
 	flag.BoolVar(&followSymlink, "follow-symlink", false, "follow symlink when stat'ing files")
 	flag.IntVar(&maxDepth, "max-depth", -1, "max recursive depth relative to start (-1 = unlimited)")
+	flag.BoolVar(&outputToStdOut, "stdout", false, "Output to standard out")
 }
 
 func main() {
 	flag.Parse()
 	stat, _ := os.Stdin.Stat()
+	if !outputToStdOut {
+		fileChannel = make(chan model.FileInfoRecord)
+	}
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		fromStdin()
 	} else {
 		if startPath == "" {
 			startPath = "."
 		}
-		if err := lshound_files.Walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, lshound_writer.EmitStdOut); err != nil {
+		if err := lshound_files.Walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel, lshound_writer.EmitStdOut); err != nil {
 			fmt.Fprintln(os.Stderr, "walk error: ", err)
 			os.Exit(1)
 		}
