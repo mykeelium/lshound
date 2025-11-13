@@ -205,7 +205,7 @@ func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanRea
 	}
 	rootDepth := len(strings.Split(filepath.Clean(root), string(os.PathSeparator)))
 
-	return filepath.WalkDir(root, func(path string, dEntry os.DirEntry, err error) error {
+	err = filepath.WalkDir(root, func(path string, dEntry os.DirEntry, err error) error {
 		if err != nil {
 			rec := model.FileInfoRecord{Path: path, Err: err.Error()}
 			emit(out, humanReadbable, rec)
@@ -237,4 +237,6 @@ func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanRea
 		emit(out, humanReadbable, rec)
 		return nil
 	})
+	close(out)
+	return err
 }

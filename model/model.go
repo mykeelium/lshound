@@ -39,6 +39,10 @@ type Group struct {
 	Members []string `json:"members"`
 }
 
+type GraphEnvelope struct {
+	Graph Graph `json:"graph"`
+}
+
 type Graph struct {
 	Nodes []Node `json:"nodes"`
 	Edges []Edge `json:"edges"`

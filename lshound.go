@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	_ "embed"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -14,7 +15,7 @@ import (
 	lshound_groups "github.com/mykeelium/lshound/groups"
 	model "github.com/mykeelium/lshound/model"
 	lshound_users "github.com/mykeelium/lshound/users"
-	lshound_writer "github.com/mykeelium/lshound/writer"
+	"github.com/mykeelium/lshound/writer"
 )
 
 var (
@@ -38,10 +39,10 @@ func fromStdin() {
 		if path != "" {
 			info, statErr := os.Lstat(path)
 			if statErr != nil {
-				emit(model.FileInfoRecord{Path: path, Err: statErr.Error()})
+				emit()(fileChannel, doJSON, model.FileInfoRecord{Path: path, Err: statErr.Error()})
 			} else {
 				rec := lshound_files.ProcessPath(path, info, checkACL)
-				emit(rec)
+				emit()(fileChannel, doJSON, rec)
 			}
 		}
 		if err == io.EOF {
@@ -50,11 +51,11 @@ func fromStdin() {
 	}
 }
 
-func emit(record model.FileInfoRecord) {
+func emit() model.Emit {
 	if outputToStdOut {
-		lshound_writer.EmitStdOut(nil, doJSON, record)
+		return writer.EmitStdOut
 	} else {
-		lshound_writer.EmitStdOut(fileChannel, doJSON, record)
+		return writer.EmitStdOut
 	}
 }
 
@@ -73,24 +74,30 @@ func main() {
 	if !outputToStdOut {
 		fileChannel = make(chan model.FileInfoRecord)
 	}
+
+	users, userErr := lshound_users.GetAllUsers()
+	if userErr != nil {
+		log.Fatal(userErr)
+	}
+
+	groups, groupErr := lshound_groups.GetAllGroups()
+	if groupErr != nil {
+		log.Fatal(groupErr)
+	}
+
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		fromStdin()
 	} else {
 		if startPath == "" {
 			startPath = "."
 		}
-		if err := lshound_files.Walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel, lshound_writer.EmitStdOut); err != nil {
+		if err := lshound_files.Walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel, emit()); err != nil {
 			fmt.Fprintln(os.Stderr, "walk error: ", err)
 			os.Exit(1)
 		}
 	}
 
-	_, userErr := lshound_users.GetAllUsers()
-	if userErr != nil {
-		log.Fatal(userErr)
-	}
-	_, groupErr := lshound_groups.GetAllGroups()
-	if groupErr != nil {
-		log.Fatal(groupErr)
-	}
+	graph := writer.CreateGraph(users, groups, fileChannel)
+	graphJSON, _ := json.MarshalIndent(graph, "", "  ")
+	fmt.Println(string(graphJSON))
 }
