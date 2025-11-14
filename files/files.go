@@ -156,7 +156,8 @@ func ProcessPath(path string, info os.FileInfo, checkACL bool) model.FileInfoRec
 		ModTime: info.ModTime(),
 	}
 	mode := info.Mode()
-	rec.Mode = modeToStirng(mode)
+	rec.Mode = mode
+	rec.ModeString = modeToStirng(mode)
 	rec.ModeOctal = fmt.Sprintf("%#o", uint32(mode.Perm()))
 	rec.IsSymlink = (mode & os.ModeSymlink) != 0
 	if rec.IsSymlink {

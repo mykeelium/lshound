@@ -2,27 +2,29 @@
 package model
 
 import (
+	"os"
 	"time"
 )
 
 type Emit func(chan<- FileInfoRecord, bool, FileInfoRecord)
 
 type FileInfoRecord struct {
-	Path       string    `json:"path"`
-	Type       string    `json:"type"`
-	Mode       string    `json:"mode"`
-	ModeOctal  string    `json:"mode_octal"`
-	UID        uint32    `json:"uid"`
-	GID        uint32    `json:"gid"`
-	User       string    `json:"user,omitempty"`
-	Group      string    `json:"group,omitempty"`
-	Size       int64     `json:"size"`
-	INode      uint64    `json:"inode"`
-	ModTime    time.Time `json:"mod_time"`
-	IsSymlink  bool      `json:"is_symlink"`
-	LinkTarget string    `json:"link_target,omitempty"`
-	ACL        bool      `json:"acl"`
-	Err        string    `json:"err,omitempty"`
+	Path       string      `json:"path"`
+	Type       string      `json:"type"`
+	Mode       os.FileMode `json:"mode"`
+	ModeString string      `json:"mode_string"`
+	ModeOctal  string      `json:"mode_octal"`
+	UID        uint32      `json:"uid"`
+	GID        uint32      `json:"gid"`
+	User       string      `json:"user,omitempty"`
+	Group      string      `json:"group,omitempty"`
+	Size       int64       `json:"size"`
+	INode      uint64      `json:"inode"`
+	ModTime    time.Time   `json:"mod_time"`
+	IsSymlink  bool        `json:"is_symlink"`
+	LinkTarget string      `json:"link_target,omitempty"`
+	ACL        bool        `json:"acl"`
+	Err        string      `json:"err,omitempty"`
 }
 
 type User struct {

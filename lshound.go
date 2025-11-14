@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 
 	lshound_files "github.com/mykeelium/lshound/files"
 	lshound_groups "github.com/mykeelium/lshound/groups"
@@ -26,6 +27,8 @@ var (
 	maxDepth       int
 	outputToStdOut bool
 	fileChannel    chan model.FileInfoRecord
+	outputName     string
+	wg             sync.WaitGroup
 )
 
 func fromStdin() {
@@ -46,6 +49,7 @@ func fromStdin() {
 			}
 		}
 		if err == io.EOF {
+			close(fileChannel)
 			break
 		}
 	}
@@ -55,7 +59,7 @@ func emit() model.Emit {
 	if outputToStdOut {
 		return writer.EmitStdOut
 	} else {
-		return writer.EmitStdOut
+		return writer.EmitChannel
 	}
 }
 
@@ -66,6 +70,7 @@ func init() {
 	flag.BoolVar(&followSymlink, "follow-symlink", false, "follow symlink when stat'ing files")
 	flag.IntVar(&maxDepth, "max-depth", -1, "max recursive depth relative to start (-1 = unlimited)")
 	flag.BoolVar(&outputToStdOut, "stdout", false, "Output to standard out")
+	flag.StringVar(&outputName, "ouput", "output", "output file name")
 }
 
 func main() {
@@ -91,13 +96,32 @@ func main() {
 		if startPath == "" {
 			startPath = "."
 		}
-		if err := lshound_files.Walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel, emit()); err != nil {
-			fmt.Fprintln(os.Stderr, "walk error: ", err)
-			os.Exit(1)
-		}
+
+		wg.Add(1)
+		go walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel)
 	}
 
+	wg.Add(1)
+	go runOutput(users, groups, fileChannel)
+	wg.Wait()
+
+	fmt.Println("Graph created and output!")
+}
+
+func runOutput(users []model.User, groups []model.Group, fileChannel chan model.FileInfoRecord) {
 	graph := writer.CreateGraph(users, groups, fileChannel)
 	graphJSON, _ := json.MarshalIndent(graph, "", "  ")
-	fmt.Println(string(graphJSON))
+	f, _ := os.Create(fmt.Sprintf("%v.json", outputName))
+	defer f.Close()
+	f.Write(graphJSON)
+	wg.Done()
+}
+
+func walk(startPath string, maxDepth int, followSymlink bool, checkACL bool, doJSON bool, fileChannel chan model.FileInfoRecord) {
+	if err := lshound_files.Walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel, emit()); err != nil {
+		fmt.Fprintln(os.Stderr, "walk error: ", err)
+		wg.Done()
+		os.Exit(1)
+	}
+	wg.Done()
 }
