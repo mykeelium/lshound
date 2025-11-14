@@ -11,4 +11,5 @@ Arguments:
     -follow-symlink     While doing the walk, whether or not to follow symlinks     | Default: false
     -max-depth <depth>  Max recursive depth relative to start (-1 = unlimited)      | Default: -1
     -stdout             Whether or not to output to standard out                    | Default: false
+    -output <fileName>  Specify the file name to output to if not output to stdout  | Default: output
 ```
