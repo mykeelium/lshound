@@ -51,7 +51,7 @@ func CreateGraph(users []model.User, groups []model.Group, fileChannel chan mode
 		})
 
 		edges = append(edges, model.Edge{
-			Kind: "MemberOf",
+			Kind: "InGroup",
 			Start: model.Connection{
 				Value:   fmt.Sprintf("uid-%d", user.UID),
 				MatchBy: "id",
@@ -74,7 +74,7 @@ func CreateGraph(users []model.User, groups []model.Group, fileChannel chan mode
 		nodes = append(nodes, model.Node{
 			ID:    fmt.Sprintf("inode-%d", file.INode),
 			Title: file.Path,
-			Kinds: []string{"file"},
+			Kinds: []string{file.Type},
 			Properties: map[string]string{
 				"name":        file.Path,
 				"type":        file.Type,
