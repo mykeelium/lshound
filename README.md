@@ -1,5 +1,9 @@
 # lshound
 
+#### Install
+
+`go install github.com/mykeelium/lshound@latest`
+
 ##### Command Line Arguments
 
 ```text

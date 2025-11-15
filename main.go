@@ -70,7 +70,7 @@ func init() {
 	flag.BoolVar(&followSymlink, "follow-symlink", false, "follow symlink when stat'ing files")
 	flag.IntVar(&maxDepth, "max-depth", -1, "max recursive depth relative to start (-1 = unlimited)")
 	flag.BoolVar(&outputToStdOut, "stdout", false, "Output to standard out")
-	flag.StringVar(&outputName, "ouput", "output", "output file name")
+	flag.StringVar(&outputName, "output", "output", "output file name")
 }
 
 func main() {
