@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-type Emit func(chan<- FileInfoRecord, bool, FileInfoRecord)
-
 type FileInfoRecord struct {
 	Path       string      `json:"path"`
 	Type       string      `json:"type"`
@@ -39,6 +37,12 @@ type Group struct {
 	Name    string   `json:"name"`
 	GID     uint32   `json:"gid"`
 	Members []string `json:"members"`
+}
+
+type CollectionEnvelope struct {
+	Users           []User           `json:"users"`
+	Groups          []Group          `json:"groups"`
+	FileSystemItems []FileInfoRecord `json:"file_system_items"`
 }
 
 type GraphEnvelope struct {

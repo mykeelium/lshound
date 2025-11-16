@@ -149,7 +149,7 @@ func detectACL(path string) (bool, error) {
 	return false, nil
 }
 
-func ProcessPath(path string, info os.FileInfo, checkACL bool) model.FileInfoRecord {
+func ProcessPath(path string, info os.FileInfo, skipACL bool) model.FileInfoRecord {
 	rec := model.FileInfoRecord{
 		Path:    path,
 		Size:    info.Size(),
@@ -184,7 +184,7 @@ func ProcessPath(path string, info os.FileInfo, checkACL bool) model.FileInfoRec
 		rec.Err = err.Error()
 	}
 
-	if checkACL {
+	if !skipACL {
 		acl, err := detectACL(path)
 		if err != nil {
 			if rec.Err == "" {
@@ -199,7 +199,7 @@ func ProcessPath(path string, info os.FileInfo, checkACL bool) model.FileInfoRec
 	return rec
 }
 
-func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanReadbable bool, out chan<- model.FileInfoRecord, emit model.Emit) error {
+func Walk(root string, maxDepth int, followSymlink bool, skipACL bool, out chan<- model.FileInfoRecord) error {
 	rootAbs, err := filepath.Abs(root)
 	if err == nil {
 		root = rootAbs
@@ -209,7 +209,7 @@ func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanRea
 	err = filepath.WalkDir(root, func(path string, dEntry os.DirEntry, err error) error {
 		if err != nil {
 			rec := model.FileInfoRecord{Path: path, Err: err.Error()}
-			emit(out, humanReadbable, rec)
+			out <- rec
 			return nil
 		}
 
@@ -231,11 +231,11 @@ func Walk(root string, maxDepth int, followSymlink bool, checkACL bool, humanRea
 		}
 		if err != nil {
 			rec := model.FileInfoRecord{Path: path, Err: err.Error()}
-			emit(out, humanReadbable, rec)
+			out <- rec
 			return nil
 		}
-		rec := ProcessPath(path, info, checkACL)
-		emit(out, humanReadbable, rec)
+		rec := ProcessPath(path, info, skipACL)
+		out <- rec
 		return nil
 	})
 	close(out)

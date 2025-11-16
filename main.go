@@ -21,8 +21,8 @@ import (
 
 var (
 	startPath      string
-	doJSON         bool
-	checkACL       bool
+	baseCollection bool
+	skipACL        bool
 	followSymlink  bool
 	maxDepth       int
 	outputToStdOut bool
@@ -42,31 +42,24 @@ func fromStdin() {
 		if path != "" {
 			info, statErr := os.Lstat(path)
 			if statErr != nil {
-				emit()(fileChannel, doJSON, model.FileInfoRecord{Path: path, Err: statErr.Error()})
+				fileChannel <- model.FileInfoRecord{Path: path, Err: statErr.Error()}
 			} else {
-				rec := lshound_files.ProcessPath(path, info, checkACL)
-				emit()(fileChannel, doJSON, rec)
+				rec := lshound_files.ProcessPath(path, info, skipACL)
+				fileChannel <- rec
 			}
 		}
 		if err == io.EOF {
-			close(fileChannel)
 			break
 		}
 	}
-}
-
-func emit() model.Emit {
-	if outputToStdOut {
-		return writer.EmitStdOut
-	} else {
-		return writer.EmitChannel
-	}
+	close(fileChannel)
+	wg.Done()
 }
 
 func init() {
 	flag.StringVar(&startPath, "path", ".", "starting path")
-	flag.BoolVar(&doJSON, "json", true, "output to json")
-	flag.BoolVar(&checkACL, "acl", false, "check for POSIX ACLs using getfacl (if available)")
+	flag.BoolVar(&baseCollection, "basecollection", false, "output set to be in mapped to the OpenGraph format by default, use this switch to return the base collection")
+	flag.BoolVar(&skipACL, "skip-acl", false, "check for POSIX ACLs using getfacl, set this flag to skip")
 	flag.BoolVar(&followSymlink, "follow-symlink", false, "follow symlink when stat'ing files")
 	flag.IntVar(&maxDepth, "max-depth", -1, "max recursive depth relative to start (-1 = unlimited)")
 	flag.BoolVar(&outputToStdOut, "stdout", false, "Output to standard out")
@@ -76,9 +69,7 @@ func init() {
 func main() {
 	flag.Parse()
 	stat, _ := os.Stdin.Stat()
-	if !outputToStdOut {
-		fileChannel = make(chan model.FileInfoRecord)
-	}
+	fileChannel = make(chan model.FileInfoRecord)
 
 	users, userErr := lshound_users.GetAllUsers()
 	if userErr != nil {
@@ -91,34 +82,47 @@ func main() {
 	}
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		fromStdin()
+		wg.Add(1)
+		go fromStdin()
 	} else {
 		if startPath == "" {
 			startPath = "."
 		}
 
 		wg.Add(1)
-		go walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel)
+		go walk(startPath, maxDepth, followSymlink, skipACL, fileChannel)
 	}
 
 	wg.Add(1)
 	go runOutput(users, groups, fileChannel)
 	wg.Wait()
 
-	fmt.Println("Graph created and output!")
+	if !outputToStdOut {
+		fmt.Println("Graph created and output!")
+	}
 }
 
 func runOutput(users []model.User, groups []model.Group, fileChannel chan model.FileInfoRecord) {
-	graph := writer.CreateGraph(users, groups, fileChannel)
-	graphJSON, _ := json.MarshalIndent(graph, "", "  ")
-	f, _ := os.Create(fmt.Sprintf("%v.json", outputName))
-	defer f.Close()
-	f.Write(graphJSON)
+	var rec any
+	if baseCollection {
+		rec = writer.CreateBaseCollection(users, groups, fileChannel)
+	} else {
+		rec = writer.CreateGraph(users, groups, fileChannel)
+	}
+	outputJSON, _ := json.MarshalIndent(rec, "", "  ")
+
+	if outputToStdOut {
+		fmt.Println(string(outputJSON))
+	} else {
+		f, _ := os.Create(fmt.Sprintf("%v.json", outputName))
+		defer f.Close()
+		f.Write(outputJSON)
+	}
 	wg.Done()
 }
 
-func walk(startPath string, maxDepth int, followSymlink bool, checkACL bool, doJSON bool, fileChannel chan model.FileInfoRecord) {
-	if err := lshound_files.Walk(startPath, maxDepth, followSymlink, checkACL, !doJSON, fileChannel, emit()); err != nil {
+func walk(startPath string, maxDepth int, followSymlink bool, skipACL bool, fileChannel chan model.FileInfoRecord) {
+	if err := lshound_files.Walk(startPath, maxDepth, followSymlink, skipACL, fileChannel); err != nil {
 		fmt.Fprintln(os.Stderr, "walk error: ", err)
 		wg.Done()
 		os.Exit(1)

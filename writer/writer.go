@@ -2,7 +2,6 @@
 package writer
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -10,18 +9,17 @@ import (
 	model "github.com/mykeelium/lshound/model"
 )
 
-func EmitStdOut(_ chan<- model.FileInfoRecord, writeJSON bool, rec model.FileInfoRecord) {
-	if writeJSON {
-		js, _ := json.MarshalIndent(rec, "", "  ")
-		fmt.Println(string(js))
-	} else {
-		fmt.Printf("%s\t%s\t%s\tuid:%d\tgid:%d\tuser:%s\tgroup:%s\tsize:%d\tacl:%t\n",
-			rec.Path, rec.Type, rec.Mode, rec.UID, rec.GID, rec.User, rec.Group, rec.Size, rec.ACL)
+func CreateBaseCollection(users []model.User, groups []model.Group, fileChannel chan model.FileInfoRecord) model.CollectionEnvelope {
+	fileSystemItems := []model.FileInfoRecord{}
+	for file := range fileChannel {
+		fileSystemItems = append(fileSystemItems, file)
 	}
-}
 
-func EmitChannel(fileChannel chan<- model.FileInfoRecord, isJSON bool, record model.FileInfoRecord) {
-	fileChannel <- record
+	return model.CollectionEnvelope{
+		Users:           users,
+		Groups:          groups,
+		FileSystemItems: fileSystemItems,
+	}
 }
 
 func CreateGraph(users []model.User, groups []model.Group, fileChannel chan model.FileInfoRecord) model.GraphEnvelope {
