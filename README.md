@@ -1,8 +1,21 @@
 # lshound
 
+This is a package that is used to map out the ACLs of the filesystem on a Unix based OS. You can use this software to generate the OpenGraph representation of a filesystem to see how the files may interact with each other, and what type of control users and groups have. Some other properties of the file system are also collected.
+
+#### Requirements
+
+go version 1.25
+OS: Unix based
+
+To install this program, go version 1.25 is required to build. Once this and GOPATH is properly set up, go install could be run. 
+
 #### Install
 
 `go install github.com/mykeelium/lshound@latest`
+
+#### Usage
+
+
 
 ##### Command Line Arguments
 

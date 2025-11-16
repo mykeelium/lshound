@@ -12,7 +12,7 @@ import (
 )
 
 func GetAllGroups() ([]model.Group, error) {
-	file, err := os.Open("/etc//group")
+	file, err := os.Open("/etc/group")
 	if err != nil {
 		return nil, err
 	}

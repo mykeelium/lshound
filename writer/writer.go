@@ -36,6 +36,23 @@ func CreateGraph(users []model.User, groups []model.Group, fileChannel chan mode
 				"name": group.Name,
 			},
 		})
+		for _, member := range group.Members {
+			for _, user := range users {
+				if member == user.Username {
+					edges = append(edges, model.Edge{
+						Kind: "InGroup",
+						Start: model.Connection{
+							Value:   fmt.Sprintf("uid-%d", user.UID),
+							MatchBy: "id",
+						},
+						End: model.Connection{
+							Value:   fmt.Sprintf("gid-%d", group.GID),
+							MatchBy: "id",
+						},
+					})
+				}
+			}
+		}
 	}
 	for _, user := range users {
 		nodes = append(nodes, model.Node{
