@@ -16,7 +16,10 @@ import (
 	model "github.com/mykeelium/lshound/model"
 )
 
-func modeToStirng(m os.FileMode) string {
+func modeToStirng(m os.FileMode) (string, bool, bool, bool) {
+	setUID := false
+	setGID := false
+	isVTX := false
 	var b [9]byte
 	perms := []os.FileMode{0o400, 0o200, 0o100, 0o040, 0o020, 0o010, 0o004, 0o002, 0o001}
 	letters := []byte{'r', 'w', 'x'}
@@ -28,28 +31,31 @@ func modeToStirng(m os.FileMode) string {
 		}
 	}
 
-	if m&os.FileMode(syscall.S_ISUID) != 0 {
+	if m&os.ModeSetuid != 0 {
+		setUID = true
 		if b[2] == 'x' {
 			b[2] = 's'
 		} else {
 			b[2] = 'S'
 		}
 	}
-	if m&os.FileMode(syscall.S_ISGID) != 0 {
+	if m&os.ModeSetgid != 0 {
+		setGID = true
 		if b[5] == 'x' {
 			b[5] = 's'
 		} else {
 			b[5] = 'S'
 		}
 	}
-	if m&os.FileMode(syscall.S_ISVTX) != 0 {
+	if m&os.ModeSticky != 0 {
+		isVTX = true
 		if b[8] == 'x' {
 			b[8] = 't'
 		} else {
 			b[8] = 'T'
 		}
 	}
-	return string(b[:])
+	return string(b[:]), setUID, setGID, isVTX
 }
 
 func uidToUser(uid uint32) string {
@@ -157,7 +163,7 @@ func ProcessPath(path string, info os.FileInfo, skipACL bool) model.FileInfoReco
 	}
 	mode := info.Mode()
 	rec.Mode = mode
-	rec.ModeString = modeToStirng(mode)
+	rec.ModeString, rec.SetUID, rec.SetGID, _ = modeToStirng(mode)
 	rec.ModeOctal = fmt.Sprintf("%#o", uint32(mode.Perm()))
 	rec.IsSymlink = (mode & os.ModeSymlink) != 0
 	if rec.IsSymlink {

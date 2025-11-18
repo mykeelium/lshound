@@ -141,6 +141,21 @@ func CreateGraph(users []model.User, groups []model.Group, fileChannel chan mode
 					MatchBy: "id",
 				},
 			})
+
+			// UID ExecuteAs Edge. Currently only set if the corresponding execute bit is set.
+			if file.SetUID {
+				edges = append(edges, model.Edge{
+					Kind: "ExecuteAs",
+					Start: model.Connection{
+						Value:   fmt.Sprintf("inode-%d", file.INode),
+						MatchBy: "id",
+					},
+					End: model.Connection{
+						Value:   fmt.Sprintf("uid-%d", file.UID),
+						MatchBy: "id",
+					},
+				})
+			}
 		}
 
 		if ownerCanWrite(file.Mode) {
@@ -183,6 +198,21 @@ func CreateGraph(users []model.User, groups []model.Group, fileChannel chan mode
 					MatchBy: "id",
 				},
 			})
+
+			// GID ExecuteAs Edge, current only created if the corresponding Execute permission is set.
+			if file.SetGID {
+				edges = append(edges, model.Edge{
+					Kind: "ExecuteAs",
+					Start: model.Connection{
+						Value:   fmt.Sprintf("inode-%d", file.INode),
+						MatchBy: "id",
+					},
+					End: model.Connection{
+						Value:   fmt.Sprintf("gid-%d", file.GID),
+						MatchBy: "id",
+					},
+				})
+			}
 		}
 
 		if groupCanWrite(file.Mode) {

@@ -22,6 +22,8 @@ type FileInfoRecord struct {
 	IsSymlink  bool        `json:"is_symlink"`
 	LinkTarget string      `json:"link_target,omitempty"`
 	ACL        bool        `json:"acl"`
+	SetUID     bool        `json:"set_uid"`
+	SetGID     bool        `json:"set_gid"`
 	Err        string      `json:"err,omitempty"`
 }
 
